@@ -7,6 +7,7 @@ from typing import DefaultDict
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Union
 
 from optuna.logging import get_logger
 from optuna.study import Study
@@ -31,6 +32,7 @@ def plot_parallel_coordinate(
     *,
     target: Optional[Callable[[FrozenTrial], float]] = None,
     target_name: str = "Objective Value",
+    target_direction: Optional[Union[StudyDirection, str]] = StudyDirection.MINIMIZE
 ) -> "go.Figure":
     """Plot the high-dimensional parameter relationships in a study.
 
@@ -83,7 +85,15 @@ def plot_parallel_coordinate(
 
     _imports.check()
     _check_plot_args(study, target, target_name)
-    return _get_parallel_coordinate_plot(study, params, target, target_name)
+
+    if target_direction == "minimize":
+        target_direction = StudyDirection.MINIMIZE
+    elif target_direction == "maximize":
+        target_direction = StudyDirection.MAXIMIZE
+    elif target_direction != StudyDirection.MINIMIZE and target_direction != StudyDirection.MAXIMIZE:
+        raise ValueError("Direction '{direction}' is not in ['minimize', 'maximize']")
+
+    return _get_parallel_coordinate_plot(study, params, target, target_name, target_direction)
 
 
 def _get_parallel_coordinate_plot(
@@ -91,6 +101,7 @@ def _get_parallel_coordinate_plot(
     params: Optional[List[str]] = None,
     target: Optional[Callable[[FrozenTrial], float]] = None,
     target_name: str = "Objective Value",
+    target_direction: Optional[StudyDirection] = StudyDirection.MINIMIZE
 ) -> "go.Figure":
 
     layout = go.Layout(title="Parallel Coordinate Plot")
@@ -115,9 +126,8 @@ def _get_parallel_coordinate_plot(
             return cast(float, t.value)
 
         target = _target
-        reversescale = study.direction == StudyDirection.MINIMIZE
-    else:
-        reversescale = True
+
+    reversescale = target_direction == StudyDirection.MINIMIZE
 
     dims: List[Dict[str, Any]] = [
         {
